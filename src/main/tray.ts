@@ -9,6 +9,7 @@ import { sleep } from "shared/utils/sleep";
 
 import { createAboutWindow } from "./about";
 import { isStatusNotifierHostRegistered } from "./dbus";
+import { openMsnAssetsFolder, openMsnWindow } from "./msn";
 import { AppEvents } from "./events";
 import { Settings } from "./settings";
 import { resolveAssetPath } from "./userAssets";
@@ -67,10 +68,39 @@ export async function initTray(win: BrowserWindow, setIsQuitting: (val: boolean)
 
     const trayMenu = Menu.buildFromTemplate([
         {
-            label: "Open",
+            label: "Open Messenger",
+            click() {
+                openMsnWindow();
+            }
+        },
+        {
+            label: "Show Discord",
             click() {
                 showWindow(win);
             }
+        },
+        {
+            label: "Messenger sounds",
+            type: "checkbox",
+            checked: Settings.store.msnSounds !== false,
+            click(item) {
+                Settings.store.msnSounds = item.checked;
+            }
+        },
+        {
+            label: "Messenger pop-ups",
+            type: "checkbox",
+            checked: Settings.store.msnToasts !== false,
+            click(item) {
+                Settings.store.msnToasts = item.checked;
+            }
+        },
+        {
+            label: "Open msn-assets folder",
+            click: openMsnAssetsFolder
+        },
+        {
+            type: "separator"
         },
         {
             label: "About",

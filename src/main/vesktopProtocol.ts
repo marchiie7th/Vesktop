@@ -6,6 +6,7 @@
 
 import { app, protocol } from "electron";
 
+import { handleMsnAssetsProtocol } from "./msn/assets";
 import { handleVesktopAssetsProtocol } from "./userAssets";
 import { handleVesktopStaticProtocol } from "./vesktopStatic";
 
@@ -18,6 +19,8 @@ app.whenReady().then(() => {
                 return handleVesktopAssetsProtocol(url.pathname);
             case "static":
                 return handleVesktopStaticProtocol(url.pathname);
+            case "msn-assets":
+                return handleMsnAssetsProtocol(url.pathname);
             default:
                 return new Response(null, { status: 404 });
         }

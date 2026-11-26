@@ -1,0 +1,1047 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Conversation</title>
+<link rel="stylesheet" href="./msn-common.css" />
+
+<!--
+    Messenger conversation window (step 3).
+    Original artwork only: frames, glass and icons are drawn with CSS.
+-->
+
+<style>
+    :root {
+        --sky-top: #8ccbec;
+        --sky-mid: #cfe9f7;
+        --paper: #ffffff;
+        --ink: #1e2d3b;
+        --muted: #6b7f8f;
+        --line: #c9dce8;
+        --panel-line: #b3cfe0;
+
+        --online: #3dbb3d;
+        --idle: #f0b429;
+        --dnd: #e0413a;
+        --offline: #a7b1b8;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        margin: 0;
+        height: 100%;
+    }
+
+    body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 13px;
+        color: var(--ink);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: linear-gradient(180deg, var(--sky-top) 0px, var(--sky-mid) 90px, #eaf5fc 160px, #eaf5fc 100%);
+    }
+
+    /* ---------- Header ---------- */
+
+    header {
+        padding: 10px 14px 6px;
+        background: radial-gradient(90% 120% at 90% -30%, rgba(255, 255, 255, 0.7), transparent 60%);
+        user-select: none;
+    }
+
+    .who {
+        font-size: 17px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .status-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 1px;
+        font-size: 12px;
+        color: #2f5269;
+    }
+
+    .status-line .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--ring);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+    }
+
+    .pm {
+        margin-top: 2px;
+        color: #3f5f74;
+        font-style: italic;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-height: 17px;
+    }
+
+    .toolbar {
+        display: flex;
+        gap: 4px;
+        padding: 2px 10px 6px;
+        user-select: none;
+    }
+
+    .toolbar button {
+        font: inherit;
+        font-size: 12px;
+        padding: 3px 9px;
+        color: #1f4d6b;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .toolbar button:hover {
+        background: linear-gradient(rgba(255, 255, 255, 0.95), rgba(214, 236, 249, 0.95));
+        border-color: #9fcbe6;
+    }
+
+    /* ---------- Main area ---------- */
+
+    main {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 1fr 128px;
+        grid-template-rows: 1fr auto;
+        gap: 8px;
+        padding: 0 10px 6px;
+    }
+
+    #convo {
+        grid-column: 1;
+        grid-row: 1;
+        overflow-y: auto;
+        background: var(--paper);
+        border: 1px solid var(--panel-line);
+        border-radius: 4px;
+        padding: 8px 12px 10px;
+        user-select: text;
+    }
+
+    .compose-wrap {
+        grid-column: 1;
+        grid-row: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        position: relative;
+    }
+
+    .compose {
+        display: flex;
+        gap: 6px;
+        align-items: stretch;
+    }
+
+    .format-bar {
+        display: flex;
+        align-items: center;
+        gap: 1px;
+        user-select: none;
+    }
+
+    .format-bar button {
+        min-width: 26px;
+        height: 24px;
+        padding: 0 6px;
+        font: inherit;
+        font-size: 13px;
+        color: #1f4d6b;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .format-bar button:hover {
+        background: linear-gradient(#ffffff, #d6ecf9);
+        border-color: #9fcbe6;
+    }
+
+    .format-bar .sep {
+        width: 1px;
+        height: 16px;
+        margin: 0 4px;
+        background: #b3cfe0;
+    }
+
+    .format-bar .spacer {
+        flex: 1;
+    }
+
+    .format-bar .nudge-btn {
+        font-size: 12px;
+    }
+
+    .emoji-picker {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        z-index: 5;
+        width: 264px;
+        max-height: 220px;
+        overflow-y: auto;
+        margin-bottom: 4px;
+        padding: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        background: #fff;
+        border: 1px solid #9cc3dc;
+        border-radius: 5px;
+        box-shadow: 0 3px 10px rgba(0, 40, 80, 0.25);
+    }
+
+    .emoji-picker[hidden] {
+        display: none;
+    }
+
+    .emoji-picker button {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        font-size: 18px;
+        line-height: 1;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .emoji-picker button:hover {
+        background: #e8f3fa;
+        border-color: #c9e1f0;
+    }
+
+    .emoji-picker img {
+        max-width: 22px;
+        max-height: 22px;
+        vertical-align: middle;
+    }
+
+    .emoji-picker .label {
+        width: 100%;
+        font-size: 11px;
+        color: var(--muted);
+        padding: 2px 2px 0;
+    }
+
+    textarea {
+        flex: 1;
+        resize: none;
+        height: 58px;
+        font: inherit;
+        padding: 6px 8px;
+        color: var(--ink);
+        background: var(--paper);
+        border: 1px solid var(--panel-line);
+        border-radius: 4px;
+        outline: none;
+    }
+
+    textarea:focus {
+        border-color: #6fb0d8;
+        box-shadow: 0 0 0 2px rgba(111, 176, 216, 0.22);
+    }
+
+    textarea:disabled {
+        background: #f3f6f8;
+    }
+
+    .send {
+        width: 64px;
+        font: inherit;
+        color: #1f4d6b;
+        border: 1px solid #8fb7cf;
+        border-radius: 4px;
+        background: linear-gradient(#ffffff, #dcebf4);
+        cursor: pointer;
+    }
+
+    .send:hover:not(:disabled) {
+        background: linear-gradient(#ffffff, #c9e2f1);
+    }
+
+    .send:disabled {
+        color: #9aaebb;
+        cursor: default;
+    }
+
+    aside {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+    }
+
+    /* ---------- Display pictures (same frame as the contact list) ---------- */
+
+    .dp {
+        --ring: var(--offline);
+        position: relative;
+        width: 112px;
+        height: 112px;
+        padding: 5px;
+        border-radius: 14px;
+        background:
+            linear-gradient(160deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 45%),
+            linear-gradient(180deg, color-mix(in srgb, var(--ring) 70%, white), var(--ring));
+        box-shadow:
+            0 1px 3px rgba(0, 40, 80, 0.35),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+    }
+
+    .dp.mine {
+        width: 84px;
+        height: 84px;
+        padding: 4px;
+        border-radius: 12px;
+    }
+
+    .dp img,
+    .dp .initial {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 9px;
+        object-fit: cover;
+    }
+
+    .dp .initial {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 40px;
+        color: #5d7d93;
+        background: linear-gradient(#f4f9fc, #d9e8f2);
+    }
+
+    .dp.mine .initial {
+        font-size: 30px;
+    }
+
+    .online {
+        --ring: var(--online);
+    }
+    .idle {
+        --ring: var(--idle);
+    }
+    .dnd {
+        --ring: var(--dnd);
+    }
+    .offline {
+        --ring: var(--offline);
+    }
+
+    /* ---------- Messages ---------- */
+
+    .turn {
+        margin-top: 8px;
+    }
+
+    .turn:first-child {
+        margin-top: 0;
+    }
+
+    .says {
+        color: #6b7f8f;
+        font-size: 12px;
+        margin-bottom: 1px;
+    }
+
+    .says .name {
+        color: #3a5568;
+    }
+
+    .turn.mine .says .name {
+        color: #5b6f7d;
+    }
+
+    .msg {
+        padding: 1px 0 1px 14px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        line-height: 1.4;
+    }
+
+    .msg.pending {
+        color: #8a9aa6;
+    }
+
+    .msg.failed {
+        color: #b23a33;
+    }
+
+    .msg a {
+        color: #1a6fa8;
+    }
+
+    .msg .att {
+        display: block;
+        margin-top: 3px;
+    }
+
+    .msg img.thumb {
+        display: block;
+        max-width: min(260px, 100%);
+        max-height: 220px;
+        margin-top: 4px;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .divider {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px 0 4px;
+        color: #8b9ca8;
+        font-size: 11.5px;
+        user-select: none;
+    }
+
+    .divider::before,
+    .divider::after {
+        content: "";
+        flex: 1;
+        border-top: 1px solid #e1ebf1;
+    }
+
+    .msg .emo {
+        height: 19px;
+        vertical-align: -4px;
+    }
+
+    .nudge-line {
+        margin: 8px 0 2px;
+        padding-left: 2px;
+        color: #8a6d1f;
+        font-size: 12px;
+        font-style: italic;
+    }
+
+    .nudge-line::before {
+        content: "〰 ";
+        font-style: normal;
+    }
+
+    .notice {
+        margin: 8px 0;
+        padding: 6px 10px;
+        border-radius: 3px;
+        font-size: 12px;
+        background: #fff6e0;
+        border: 1px solid #f1d58a;
+        color: #6b5418;
+    }
+
+    .notice.error {
+        background: #fdeceb;
+        border-color: #efb3ae;
+        color: #8a2f29;
+        white-space: pre-wrap;
+    }
+
+    .loading {
+        color: var(--muted);
+        text-align: center;
+        padding: 30px 0;
+    }
+
+    /* ---------- Status line ---------- */
+
+    .statusline {
+        padding: 3px 12px 6px;
+        font-size: 11.5px;
+        color: var(--muted);
+        min-height: 22px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        user-select: none;
+    }
+
+    .statusline.typing {
+        color: #2d6a8f;
+    }
+
+    .counter {
+        float: right;
+        margin-left: 10px;
+    }
+
+    .counter.over {
+        color: #b23a33;
+        font-weight: 600;
+    }
+</style>
+
+<div class="titlebar">
+    <img class="tb-icon" src="vesktop://static/msn/icon.png" alt="" />
+    <span class="tb-title">Conversation</span>
+    <div class="tb-buttons">
+        <button data-tb="min" type="button" aria-label="Minimize"></button>
+        <button data-tb="max" type="button" aria-label="Maximize"></button>
+        <button data-tb="close" type="button" aria-label="Close"></button>
+    </div>
+</div>
+
+<header>
+    <div class="who" id="name">Conversation</div>
+    <div class="status-line offline" id="statusLine"><span class="dot"></span><span id="status"></span></div>
+    <div class="pm" id="pm"></div>
+</header>
+
+<div class="toolbar">
+    <button id="showInDiscord" type="button" title="Open this conversation in the normal Discord window">Show in Discord</button>
+</div>
+
+<main>
+    <div id="convo"><div class="loading">Opening conversation…</div></div>
+
+    <div class="compose-wrap">
+        <div class="format-bar" id="formatBar">
+            <button type="button" data-wrap="**" title="Bold (Ctrl+B)"><b>B</b></button>
+            <button type="button" data-wrap="*" title="Italic (Ctrl+I)"><i>I</i></button>
+            <button type="button" data-wrap="__" title="Underline (Ctrl+U)"><u>U</u></button>
+            <button type="button" data-wrap="~~" title="Strikethrough"><s>S</s></button>
+            <span class="sep"></span>
+            <button type="button" data-wrap="||" title="Spoiler">▮</button>
+            <button type="button" data-wrap="`" title="Code">&lt;/&gt;</button>
+            <span class="sep"></span>
+            <button type="button" id="emojiBtn" title="Emoticons">☺</button>
+            <span class="spacer"></span>
+            <button type="button" class="nudge-btn" id="nudge" title="Send a nudge (Ctrl+G)">〰 Nudge</button>
+        </div>
+        <div class="emoji-picker" id="emojiPicker" hidden></div>
+        <div class="compose">
+            <textarea id="input" placeholder="Type a message…" disabled spellcheck="true"></textarea>
+            <button class="send" id="send" type="button" disabled>Send</button>
+        </div>
+    </div>
+
+    <aside>
+        <div class="dp offline" id="friendDp"><div class="initial">?</div></div>
+        <div class="dp mine offline" id="myDp"><div class="initial">?</div></div>
+    </aside>
+</main>
+
+<div class="statusline" id="statusline"><span class="counter" id="counter"></span><span id="statustext"></span></div>
+
+<script src="./msn-common.js"></script>
+<script>
+    "use strict";
+
+    const MAX_LEN = 2000;
+    const GROUP_GAP_MS = 5 * 60 * 1000;
+    const TYPING_SHOW_MS = 10_000;
+    const TYPING_SEND_EVERY_MS = 8_000;
+    const MEDIA_HOSTS = ["cdn.discordapp.com", "media.discordapp.net"];
+    const STATUS_WORD = { online: "Available", idle: "Away", dnd: "Busy", offline: "Offline" };
+
+    let me = null;
+    let friend = null;
+    let messages = [];
+    let ready = false;
+    let typingTimer = null;
+    let lastTypingSent = 0;
+    let lastReceived = null;
+
+    const convo = document.getElementById("convo");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    // ---------- helpers ----------
+
+    function bucket(status) {
+        if (status === "online" || status === "streaming") return "online";
+        if (status === "idle") return "idle";
+        if (status === "dnd") return "dnd";
+        return "offline";
+    }
+
+    function safeMediaUrl(url) {
+        try {
+            const u = new URL(url);
+            return u.protocol === "https:" && MEDIA_HOSTS.includes(u.hostname) ? u.href : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function fillDp(el, person) {
+        el.classList.remove("online", "idle", "dnd", "offline");
+        el.classList.add(bucket(person.status));
+
+        const fallback = () => {
+            const initial = document.createElement("div");
+            initial.className = "initial";
+            initial.textContent = ((person.displayName || "").match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase();
+            el.replaceChildren(initial);
+        };
+
+        const src = safeMediaUrl(person.avatarUrl);
+        if (!src) return fallback();
+
+        const current = el.querySelector("img");
+        if (current && current.src === src) return;
+
+        const img = document.createElement("img");
+        img.alt = "";
+        img.draggable = false;
+        img.referrerPolicy = "no-referrer";
+        img.onerror = fallback;
+        img.src = src;
+        el.replaceChildren(img);
+    }
+
+    function nearBottom() {
+        return convo.scrollTop + convo.clientHeight >= convo.scrollHeight - 30;
+    }
+
+    function scrollToBottom() {
+        convo.scrollTop = convo.scrollHeight;
+    }
+
+    function timeOf(iso) {
+        return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+
+    function dayOf(iso) {
+        return new Date(iso).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    }
+
+    // ---------- header / pictures ----------
+
+    function renderPeople() {
+        if (friend) {
+            document.getElementById("name").textContent = friend.displayName;
+            const b = bucket(friend.status);
+            document.getElementById("statusLine").className = "status-line " + b;
+            document.getElementById("status").textContent = STATUS_WORD[b];
+            document.getElementById("pm").textContent = friend.customStatus || "";
+            document.title = `${friend.displayName} - Conversation`;
+            fillDp(document.getElementById("friendDp"), friend);
+            input.placeholder = `Message ${friend.displayName}…`;
+        }
+        if (me) fillDp(document.getElementById("myDp"), me);
+    }
+
+    // ---------- conversation ----------
+
+    function renderMessages() {
+        const stick = nearBottom();
+        const frag = document.createDocumentFragment();
+
+        let turn = null;
+        let prev = null;
+        let lastDay = null;
+
+        const dayDivider = iso => {
+            if (dayOf(iso) === lastDay) return;
+            lastDay = dayOf(iso);
+            const d = document.createElement("div");
+            d.className = "divider";
+            d.textContent = lastDay;
+            frag.append(d);
+            turn = null;
+        };
+
+        for (const m of messages) {
+            if (m.kind === "notice") {
+                const n = document.createElement("div");
+                n.className = "notice" + (m.error ? " error" : "");
+                n.textContent = m.text;
+                frag.append(n);
+                turn = null;
+                prev = null;
+                continue;
+            }
+
+            if (Msn.isNudge(m.content) && !m.failed) {
+                if (m.pending) continue; // shows once delivered
+                dayDivider(m.timestamp);
+                const n = document.createElement("div");
+                n.className = "nudge-line";
+                n.textContent = m.fromMe
+                    ? "You have just sent a nudge."
+                    : `${friend?.displayName ?? m.authorName} has just sent you a nudge.`;
+                n.title = timeOf(m.timestamp);
+                frag.append(n);
+                turn = null;
+                prev = null;
+                continue;
+            }
+
+            dayDivider(m.timestamp);
+
+            const sameTurn =
+                turn &&
+                prev &&
+                prev.authorId === m.authorId &&
+                new Date(m.timestamp) - new Date(prev.timestamp) < GROUP_GAP_MS;
+
+            if (!sameTurn) {
+                turn = document.createElement("div");
+                turn.className = "turn" + (m.fromMe ? " mine" : "");
+                const says = document.createElement("div");
+                says.className = "says";
+                const name = document.createElement("span");
+                name.className = "name";
+                name.textContent = m.fromMe && me ? me.displayName : m.authorName;
+                says.append(name, document.createTextNode(" says:"));
+                says.title = timeOf(m.timestamp);
+                turn.append(says);
+                frag.append(turn);
+            }
+
+            const line = document.createElement("div");
+            line.className = "msg";
+            if (m.pending) line.classList.add("pending");
+            if (m.failed) line.classList.add("failed");
+            line.title = timeOf(m.timestamp) + (m.pending ? " · sending…" : m.failed ? " · not delivered" : "");
+
+            if (m.failed) line.append(document.createTextNode("Couldn't be delivered: "));
+            if (m.content) Msn.appendRich(line, m.content);
+
+            for (const att of m.attachments || []) {
+                const url = safeMediaUrl(att.url);
+                if (!url) continue;
+
+                if (att.isImage) {
+                    const img = document.createElement("img");
+                    img.className = "thumb";
+                    img.alt = att.filename;
+                    img.loading = "lazy";
+                    img.referrerPolicy = "no-referrer";
+                    img.src = url;
+                    img.addEventListener("load", () => stick && scrollToBottom());
+                    img.addEventListener("click", () => window.open(url, "_blank"));
+                    line.append(img);
+                } else {
+                    const a = document.createElement("a");
+                    a.className = "att";
+                    a.href = url;
+                    a.target = "_blank";
+                    a.rel = "noreferrer";
+                    a.textContent = "📎 " + att.filename;
+                    line.append(a);
+                }
+            }
+
+            if (!m.content && !(m.attachments || []).length) {
+                const i = document.createElement("i");
+                i.textContent = "(sent something Messenger can't show — sticker, embed or poll)";
+                i.style.color = "#8a9aa6";
+                line.append(i);
+            }
+
+            turn.append(line);
+            prev = m;
+        }
+
+        if (!frag.childNodes.length) {
+            const empty = document.createElement("div");
+            empty.className = "loading";
+            empty.textContent = friend ? `This is the start of your conversation with ${friend.displayName}.` : "";
+            frag.append(empty);
+        }
+
+        convo.replaceChildren(frag);
+        if (stick) scrollToBottom();
+    }
+
+    /** Insert or update a message. The "sending…" copy and the delivered one share a nonce. */
+    function upsert(msg) {
+        const i = messages.findIndex(
+            m =>
+                m.kind !== "notice" &&
+                (m.id === msg.id || (msg.nonce && (m.nonce === msg.nonce || m.id === msg.nonce)))
+        );
+        if (i >= 0) {
+            // never downgrade a delivered message back to pending
+            if (msg.pending && !messages[i].pending) return;
+            messages[i] = msg;
+        } else {
+            messages.push(msg);
+        }
+    }
+
+    function notice(text, error) {
+        messages.push({ kind: "notice", text, error: !!error });
+        renderMessages();
+        scrollToBottom();
+    }
+
+    // ---------- status line ----------
+
+    function renderStatusLine() {
+        const line = document.getElementById("statusline");
+        const text = document.getElementById("statustext");
+
+        if (typingTimer && friend) {
+            line.classList.add("typing");
+            text.textContent = `${friend.displayName} is typing a message…`;
+        } else {
+            line.classList.remove("typing");
+            text.textContent = lastReceived
+                ? `Last message received at ${timeOf(lastReceived)} on ${new Date(lastReceived).toLocaleDateString()}.`
+                : "";
+        }
+
+        const counter = document.getElementById("counter");
+        const len = input.value.length;
+        counter.textContent = len > MAX_LEN - 200 ? `${len} / ${MAX_LEN}` : "";
+        counter.classList.toggle("over", len > MAX_LEN);
+    }
+
+    function stopFriendTyping() {
+        clearTimeout(typingTimer);
+        typingTimer = null;
+        renderStatusLine();
+    }
+
+    // ---------- sending ----------
+
+    async function send() {
+        const content = input.value.replace(/\s+$/, "");
+        if (!ready || !content.trim()) return;
+        if (content.length > MAX_LEN) {
+            notice(`That message is too long (${content.length} characters). Discord allows ${MAX_LEN}.`, true);
+            return;
+        }
+
+        input.value = "";
+        lastTypingSent = 0;
+        renderStatusLine();
+
+        try {
+            await MsnNative.sendMessage(content);
+        } catch (err) {
+            const reason = String(err?.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+            notice(`This message couldn't be delivered:\n${content}\n\n${reason}`, true);
+        }
+    }
+
+    // ---------- formatting bar ----------
+
+    /** Wrap the selection in Discord markdown, or drop in an empty pair with the cursor inside */
+    function wrapSelection(mark) {
+        if (input.disabled) return;
+        const { selectionStart: a, selectionEnd: b, value } = input;
+        const selected = value.slice(a, b);
+
+        // Already wrapped? Unwrap instead.
+        if (value.slice(a - mark.length, a) === mark && value.slice(b, b + mark.length) === mark) {
+            input.setRangeText(selected, a - mark.length, b + mark.length, "select");
+        } else {
+            input.setRangeText(mark + selected + mark, a, b, "end");
+            if (!selected) input.setSelectionRange(a + mark.length, a + mark.length);
+            else input.setSelectionRange(a + mark.length, b + mark.length);
+        }
+        input.focus();
+        input.dispatchEvent(new Event("input"));
+    }
+
+    function insertAtCursor(text) {
+        if (input.disabled) return;
+        const { selectionStart: a, selectionEnd: b, value } = input;
+        const before = a > 0 && !/\s$/.test(value.slice(0, a)) ? " " : "";
+        input.setRangeText(before + text + " ", a, b, "end");
+        input.focus();
+        input.dispatchEvent(new Event("input"));
+    }
+
+    document.getElementById("formatBar").addEventListener("mousedown", e => {
+        // keep the text selection while clicking toolbar buttons
+        if (e.target.closest("button")) e.preventDefault();
+    });
+
+    for (const btn of document.querySelectorAll("[data-wrap]")) {
+        btn.addEventListener("click", () => wrapSelection(btn.dataset.wrap));
+    }
+
+    const COMMON_EMOJI = ["😀", "😂", "😊", "😍", "😘", "😎", "😉", "😛", "😢", "😭", "😡", "😳", "🤔", "😴", "👍", "👎", "👋", "🙏", "❤️", "💔", "🎉", "🔥", "✨", "💯"];
+    const picker = document.getElementById("emojiPicker");
+
+    function buildPicker() {
+        picker.replaceChildren();
+        const mine = Msn.emoticonList();
+        if (mine.length) {
+            const label = document.createElement("div");
+            label.className = "label";
+            label.textContent = "Your emoticons";
+            picker.append(label);
+            for (const [code, url] of mine) {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.title = code;
+                const img = document.createElement("img");
+                img.src = url;
+                img.alt = code;
+                b.append(img);
+                b.addEventListener("click", () => {
+                    insertAtCursor(code);
+                    picker.hidden = true;
+                });
+                picker.append(b);
+            }
+            const label2 = document.createElement("div");
+            label2.className = "label";
+            label2.textContent = "Emoji";
+            picker.append(label2);
+        }
+        for (const emoji of COMMON_EMOJI) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = emoji;
+            b.addEventListener("click", () => {
+                insertAtCursor(emoji);
+                picker.hidden = true;
+            });
+            picker.append(b);
+        }
+    }
+
+    document.getElementById("emojiBtn").addEventListener("click", e => {
+        e.stopPropagation();
+        if (picker.hidden) buildPicker();
+        picker.hidden = !picker.hidden;
+    });
+    document.addEventListener("click", e => {
+        if (!picker.hidden && !picker.contains(e.target)) picker.hidden = true;
+    });
+
+    async function nudge() {
+        if (!ready) return;
+        try {
+            await MsnNative.nudge();
+        } catch (err) {
+            notice(String(err?.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ""), true);
+        }
+    }
+
+    // ---------- wiring ----------
+
+    MsnNative.onChatInit(init => {
+        me = init.me;
+        friend = init.friend;
+        renderPeople();
+
+        messages = [];
+        for (const m of init.messages || []) upsert(m);
+        const lastIn = [...messages].reverse().find(m => !m.fromMe);
+        lastReceived = lastIn ? lastIn.timestamp : null;
+
+        if (init.error) {
+            messages.push({ kind: "notice", text: init.error, error: true });
+        } else {
+            ready = true;
+            input.disabled = false;
+            sendBtn.disabled = false;
+            input.focus();
+        }
+
+        renderMessages();
+        scrollToBottom();
+        renderStatusLine();
+    });
+
+    MsnNative.onEvent(ev => {
+        switch (ev.type) {
+            case "message": {
+                const { type, ...msg } = ev;
+                upsert(msg);
+                if (!msg.fromMe) {
+                    lastReceived = msg.timestamp;
+                    stopFriendTyping();
+                }
+                renderMessages();
+                renderStatusLine();
+                break;
+            }
+            case "messageFailed": {
+                const m = messages.find(x => x.id === ev.messageId || x.nonce === ev.messageId);
+                if (m) {
+                    m.pending = false;
+                    m.failed = true;
+                    renderMessages();
+                }
+                break;
+            }
+            case "typing":
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(stopFriendTyping, TYPING_SHOW_MS);
+                renderStatusLine();
+                break;
+            case "presence":
+                if (friend && ev.userId === friend.id) {
+                    friend.status = ev.status;
+                    friend.customStatus = ev.customStatus;
+                    renderPeople();
+                }
+                break;
+            case "self":
+                me = ev.me;
+                renderPeople();
+                break;
+        }
+    });
+
+    input.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+            e.preventDefault();
+            send();
+        }
+    });
+
+    input.addEventListener("input", () => {
+        renderStatusLine();
+        const now = Date.now();
+        if (ready && input.value.trim() && now - lastTypingSent > TYPING_SEND_EVERY_MS) {
+            lastTypingSent = now;
+            MsnNative.typing().catch(() => {});
+        }
+    });
+
+    sendBtn.addEventListener("click", send);
+    document.getElementById("nudge").addEventListener("click", nudge);
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape") picker.hidden = true;
+        if (!e.ctrlKey || e.shiftKey || e.altKey) return;
+
+        const key = e.key.toLowerCase();
+        const marks = { b: "**", i: "*", u: "__" };
+        if (key === "g") {
+            e.preventDefault();
+            nudge();
+        } else if (marks[key] && document.activeElement === input) {
+            e.preventDefault();
+            wrapSelection(marks[key]);
+        }
+    });
+    // redraw once your emoticons are known
+    Msn.ready.then(() => ready && renderMessages());
+    document.getElementById("showInDiscord").addEventListener("click", () => MsnNative.showInDiscord());
+    window.addEventListener("focus", () => !input.disabled && input.focus());
+</script>

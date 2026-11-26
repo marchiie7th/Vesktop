@@ -35,6 +35,13 @@ export interface Settings {
     clickTrayToShowHide: boolean;
     nativeTitleBar: boolean;
 
+    /** MSN Messenger mode: hide the Discord window once logged in and use the Messenger windows instead */
+    msnMode: boolean;
+    /** Messenger sounds (sign-in, new message, nudge) */
+    msnSounds: boolean;
+    /** Corner pop-ups when friends sign in or message you */
+    msnToasts: boolean;
+
     enableSplashScreen: boolean;
     splashTheming: boolean;
     splashPixelated: boolean;

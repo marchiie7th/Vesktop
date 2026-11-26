@@ -1,0 +1,131 @@
+/*
+ * Vesktop, a desktop app aiming to give you a snappier Discord Experience
+ * Copyright (c) 2026 Vendicated and Vesktop contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/* Shared by Messenger windows: glass title bar and message formatting. Original artwork only. */
+
+/* ---------- Glass title bar ---------- */
+
+.titlebar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding-left: 8px;
+    gap: 6px;
+    -webkit-app-region: drag;
+    user-select: none;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 48%, rgba(255, 255, 255, 0) 50%),
+        linear-gradient(180deg, #7cc0e6 0%, #8ccbec 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+    color: #12324a;
+}
+
+.titlebar .tb-icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
+
+.titlebar .tb-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.titlebar .tb-buttons {
+    display: flex;
+    height: 100%;
+    -webkit-app-region: no-drag;
+}
+
+.titlebar .tb-buttons button {
+    width: 44px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: #12324a;
+    font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
+    font-size: 10px;
+    cursor: default;
+}
+
+.titlebar .tb-buttons button:hover {
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.titlebar .tb-buttons button[data-tb="close"]:hover {
+    background: #e0413a;
+    color: #fff;
+}
+
+body.maximized .titlebar .tb-buttons button[data-tb="max"]::before {
+    content: "\E923";
+}
+
+.titlebar .tb-buttons button[data-tb="max"]::before {
+    content: "\E922";
+}
+
+.titlebar .tb-buttons button[data-tb="min"]::before {
+    content: "\E921";
+}
+
+.titlebar .tb-buttons button[data-tb="close"]::before {
+    content: "\E8BB";
+}
+
+/* ---------- Message formatting (Discord markdown) ---------- */
+
+.md-code {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.92em;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: #eef3f7;
+    border: 1px solid #dde7ee;
+}
+
+.md-pre {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 12px;
+    margin: 4px 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: #f3f7fa;
+    border: 1px solid #dde7ee;
+    white-space: pre-wrap;
+    overflow-x: auto;
+}
+
+.md-quote {
+    margin: 2px 0;
+    padding-left: 8px;
+    border-left: 3px solid #b9d3e3;
+    color: #42596a;
+}
+
+.md-spoiler {
+    border-radius: 3px;
+    padding: 0 2px;
+    background: #3a4650;
+    color: transparent;
+    cursor: pointer;
+}
+
+.md-spoiler:not(.shown) * {
+    visibility: hidden;
+}
+
+.md-spoiler.shown {
+    background: #e3eaef;
+    color: inherit;
+    cursor: text;
+}

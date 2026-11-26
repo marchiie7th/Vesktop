@@ -1,0 +1,202 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Messenger</title>
+
+<!--
+    Step 1 debug window: proves Discord events reach a separate Messenger window.
+    The real contact list replaces this in step 2.
+-->
+
+<style>
+    :root {
+        --sky: #dff1fb;
+        --sky-deep: #9fd3ee;
+        --ink: #1b2b3a;
+        --muted: #5a6f80;
+        --online: #4caf50;
+        --idle: #f2b632;
+        --dnd: #e0473f;
+        --offline: #9aa5ad;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        margin: 0;
+        height: 100%;
+    }
+
+    body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 13px;
+        color: var(--ink);
+        background: linear-gradient(180deg, var(--sky-deep) 0%, var(--sky) 140px, #ffffff 320px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    header {
+        padding: 14px 14px 10px;
+    }
+
+    .who {
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .sub {
+        color: var(--muted);
+        margin-top: 2px;
+    }
+
+    .bar {
+        display: flex;
+        gap: 8px;
+        padding: 0 14px 10px;
+    }
+
+    button {
+        font: inherit;
+        padding: 4px 10px;
+        border: 1px solid #8fb7cf;
+        border-radius: 3px;
+        background: linear-gradient(#ffffff, #e3eef5);
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: linear-gradient(#ffffff, #d2e6f2);
+    }
+
+    #log {
+        flex: 1;
+        overflow-y: auto;
+        margin: 0 10px 10px;
+        padding: 6px 0;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid #b9d4e3;
+        border-radius: 4px;
+        list-style: none;
+    }
+
+    #log li {
+        padding: 4px 10px;
+        border-bottom: 1px solid #eef3f6;
+        line-height: 1.35;
+        word-break: break-word;
+    }
+
+    #log .time {
+        color: var(--muted);
+        font-size: 11px;
+        margin-right: 6px;
+    }
+
+    #log .kind {
+        font-weight: 600;
+        margin-right: 4px;
+    }
+
+    .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: middle;
+        background: var(--offline);
+    }
+
+    .dot.online {
+        background: var(--online);
+    }
+    .dot.idle {
+        background: var(--idle);
+    }
+    .dot.dnd {
+        background: var(--dnd);
+    }
+
+    .empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 30px 10px;
+    }
+</style>
+
+<header>
+    <div class="who" id="who">Signing in…</div>
+    <div class="sub" id="sub">Waiting for Discord</div>
+</header>
+
+<div class="bar">
+    <button id="showDiscord" type="button">Show Discord</button>
+    <button id="clear" type="button">Clear log</button>
+</div>
+
+<ul id="log">
+    <li class="empty" id="empty">Events from Discord will appear here: DMs, typing, friends changing status.</li>
+</ul>
+
+<script>
+    const log = document.getElementById("log");
+    const empty = document.getElementById("empty");
+    const MAX_ENTRIES = 300;
+
+    function add(kind, text, status) {
+        empty.remove();
+
+        const li = document.createElement("li");
+
+        const time = document.createElement("span");
+        time.className = "time";
+        time.textContent = new Date().toLocaleTimeString();
+        li.append(time);
+
+        if (status) {
+            const dot = document.createElement("span");
+            dot.className = "dot " + status;
+            li.append(dot);
+        }
+
+        const k = document.createElement("span");
+        k.className = "kind";
+        k.textContent = kind;
+        li.append(k, document.createTextNode(text));
+
+        const stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+        log.append(li);
+        while (log.children.length > MAX_ENTRIES) log.firstElementChild.remove();
+        if (stick) log.scrollTop = log.scrollHeight;
+    }
+
+    const STATUS_WORDS = { online: "Online", idle: "Away", dnd: "Busy", offline: "Offline", invisible: "Offline" };
+
+    MsnNative.onReady(info => {
+        document.getElementById("who").textContent = info.me.displayName;
+        document.getElementById("sub").textContent = `Online · ${info.friendCount} friends`;
+        add("Signed in", ` as ${info.me.displayName} (@${info.me.username})`, "online");
+    });
+
+    MsnNative.onEvent(ev => {
+        switch (ev.type) {
+            case "message":
+                add(ev.fromMe ? "You:" : ev.authorName + ":", " " + (ev.content || "[attachment / embed]"));
+                break;
+            case "typing":
+                add(ev.userName, " is typing…");
+                break;
+            case "presence":
+                add(ev.userName, " is now " + (STATUS_WORDS[ev.status] ?? ev.status), ev.status);
+                break;
+        }
+    });
+
+    document.getElementById("showDiscord").addEventListener("click", () => MsnNative.showDiscord());
+    document.getElementById("clear").addEventListener("click", () => {
+        log.replaceChildren(empty);
+    });
+</script>

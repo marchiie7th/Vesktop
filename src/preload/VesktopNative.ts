@@ -7,6 +7,7 @@
 import type { Node } from "@vencord/venmic";
 import { ipcRenderer } from "electron/renderer";
 import type { IpcMessage, IpcResponse } from "main/ipcCommands";
+import type { MsnEvent, MsnReadyInfo } from "shared/msn";
 import type { Settings } from "shared/settings";
 import type { KeybindStatus } from "shared/utils/keybind";
 
@@ -115,6 +116,11 @@ export const VesktopNative = {
         ready: () => invoke<void>(IpcEvents.RPC_READY),
         send: (id: string, json: string) => invoke<void>(IpcEvents.RPC_SEND, id, json),
         close: (id: string, code: number, message?: string) => invoke<void>(IpcEvents.RPC_CLOSE, id, code, message)
+    },
+    msn: {
+        ready: (info: MsnReadyInfo) => invoke<void>(IpcEvents.MSN_READY, info),
+        loggedOut: () => invoke<void>(IpcEvents.MSN_LOGGED_OUT),
+        emit: (event: MsnEvent) => invoke<void>(IpcEvents.MSN_EVENT, event)
     },
     commands: {
         onCommand(cb: (message: IpcMessage) => void) {

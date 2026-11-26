@@ -30,6 +30,7 @@ import { BrowserUserAgent, DEFAULT_HEIGHT, DEFAULT_WIDTH, MessageBoxChoice, MIN_
 import { AppEvents } from "./events";
 import { sendRendererCommand } from "./ipcCommands";
 import { darwinURL } from "./main";
+import { isMsnActive } from "./msn";
 import { Settings, State, VencordSettings } from "./settings";
 import { createSplashWindow, updateSplashMessage } from "./splash";
 import { destroyTray, initTray } from "./tray";
@@ -540,7 +541,8 @@ export async function createWindows() {
     AppEvents.on("appLoaded", () => {
         splash?.destroy();
 
-        if (!startMinimized) {
+        // In Messenger mode, once signed in the Discord window stays hidden
+        if (!startMinimized && !isMsnActive()) {
             if (splash) mainWin!.show();
             if (State.store.maximized && !isDeckGameMode) mainWin!.maximize();
         }
