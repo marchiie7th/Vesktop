@@ -42,6 +42,9 @@ frames/      online, idle, dnd, offline          (.png, .gif or .webp)
 emoticons/   any images, plus emoticons.json mapping text to file names:
              { ":)": "smile.png", ":D": "grin.gif", "(L)": "heart.png" }
 
+scene        optional scene.png / scene.jpg: the banner picture behind your
+             name at the top of the contact list (shown widest in full view).
+
 style.css    optional. Applied to every Messenger window, for fine-tuning
              (frame size, fonts, colours...).
 `;
@@ -74,7 +77,7 @@ async function findNamed(dir: string, name: string, extensions: string[]) {
 
     for (const ext of extensions) {
         const match = files.find(f => f.toLowerCase() === name + ext);
-        if (match) return urlFor(`${dir}/${match}`);
+        if (match) return urlFor(dir ? `${dir}/${match}` : match);
     }
     return null;
 }
@@ -115,7 +118,9 @@ export async function getMsnAssets(): Promise<MsnAssets> {
         css = await urlFor("style.css");
     } catch {}
 
-    return { sounds, frames, emoticons: await readEmoticons(), css };
+    const scene = await findNamed("", "scene", IMAGE_EXT);
+
+    return { sounds, frames, emoticons: await readEmoticons(), css, scene };
 }
 
 export async function handleMsnAssetsProtocol(pathname: string) {

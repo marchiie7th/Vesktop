@@ -33,5 +33,6 @@ export const DefaultVesktopSettings: Settings = {
     transparencyOption: "none",
     msnMode: true,
     msnSounds: true,
-    msnToasts: true
+    msnToasts: true,
+    msnContactsView: "compact"
 };

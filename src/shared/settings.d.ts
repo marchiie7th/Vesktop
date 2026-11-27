@@ -41,6 +41,8 @@ export interface Settings {
     msnSounds: boolean;
     /** Corner pop-ups when friends sign in or message you */
     msnToasts: boolean;
+    /** Contact list layout: skinny list, or the big window with a banner and columns */
+    msnContactsView: "compact" | "full";
 
     enableSplashScreen: boolean;
     splashTheming: boolean;

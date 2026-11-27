@@ -18,7 +18,17 @@ import {
     UserStore
 } from "@vencord/types/webpack/common";
 import { IpcCommands } from "shared/IpcEvents";
-import type { MsnAttachment, MsnConversation, MsnEvent, MsnMessage, MsnPerson, MsnState } from "shared/msn";
+import type {
+    MsnAttachment,
+    MsnChannel,
+    MsnChannelConversation,
+    MsnConversation,
+    MsnEvent,
+    MsnMessage,
+    MsnPerson,
+    MsnServer,
+    MsnState
+} from "shared/msn";
 import { debounce } from "shared/utils/debounce";
 import { sleep } from "shared/utils/sleep";
 
@@ -31,17 +41,31 @@ let MessageStore: any;
 let MessageActions: any;
 let TypingActions: any;
 let PrivateChannelActions: any;
+let GuildStore: any;
+let SortedGuildStore: any;
+let GuildChannelStore: any;
+let GuildMemberStore: any;
+let VoiceStateStore: any;
 waitFor(filters.byStoreName("PresenceStore"), s => (PresenceStore = s));
 waitFor(filters.byStoreName("MessageStore"), s => (MessageStore = s));
 waitFor(filters.byProps("sendMessage", "fetchMessages"), m => (MessageActions = m));
 waitFor(filters.byProps("startTyping", "stopTyping"), m => (TypingActions = m));
 waitFor(filters.byProps("openPrivateChannel"), m => (PrivateChannelActions = m));
+waitFor(filters.byStoreName("GuildStore"), s => (GuildStore = s));
+waitFor(filters.byStoreName("SortedGuildStore"), s => (SortedGuildStore = s));
+waitFor(filters.byStoreName("GuildChannelStore"), s => (GuildChannelStore = s));
+waitFor(filters.byStoreName("GuildMemberStore"), s => (GuildMemberStore = s));
+waitFor(filters.byStoreName("VoiceStateStore"), s => (VoiceStateStore = s));
 
 const VencordUtil = () => (window as any).Vencord?.Util ?? {};
 
 // Discord channel types: 1 = DM, 3 = group DM
 const DM = 1;
 const GROUP_DM = 3;
+// Server channels Messenger can chat in: text and announcement
+const SERVER_TEXT = new Set([0, 5]);
+// Voice and stage channels
+const SERVER_VOICE = new Set([2, 13]);
 // Discord activity type 4 = custom status
 const CUSTOM_STATUS = 4;
 const HISTORY_LIMIT = 50;
@@ -99,6 +123,7 @@ function friendsSnapshot() {
 function cleanContent(content: string) {
     return content
         .replace(/<@!?(\d+)>/g, (_, id) => "@" + displayNameOf(id))
+        .replace(/<@&(\d+)>/g, "@role")
         .replace(/<#(\d+)>/g, (_, id) => "#" + (ChannelStore.getChannel(id)?.name ?? "channel"))
         .replace(/<a?:(\w+):\d+>/g, ":$1:")
         .replace(/<t:(\d+)(?::\w)?>/g, (_, s) => new Date(Number(s) * 1000).toLocaleString());
@@ -112,9 +137,19 @@ function attachmentsOf(message: any): MsnAttachment[] {
     }));
 }
 
+/** Server nickname if they have one there, otherwise their usual name */
+function nameIn(guildId: string | undefined, userId: string, fallback?: any) {
+    if (guildId) {
+        const nick = GuildMemberStore?.getNick?.(guildId, userId);
+        if (nick) return nick;
+    }
+    return displayNameOf(userId, fallback);
+}
+
 /** Normalise both raw gateway messages and MessageStore records */
 function toMsnMessage(message: any, channelId: string, pending = false): MsnMessage {
     const author = message.author ?? {};
+    const guildId: string | undefined = ChannelStore.getChannel(channelId)?.guild_id ?? undefined;
     const me = UserStore.getCurrentUser();
     const when = new Date(
         typeof message.timestamp === "string" ? message.timestamp : Number(message.timestamp ?? Date.now())
@@ -125,13 +160,14 @@ function toMsnMessage(message: any, channelId: string, pending = false): MsnMess
         nonce: message.nonce ? String(message.nonce) : undefined,
         channelId,
         authorId: author.id,
-        authorName: displayNameOf(author.id, author),
+        authorName: nameIn(guildId, author.id, author),
         content: cleanContent(message.content ?? ""),
         attachments: attachmentsOf(message),
         timestamp: (isNaN(when.getTime()) ? new Date() : when).toISOString(),
         fromMe: author.id === me?.id,
         pending,
-        isGroup: channelType(channelId) === GROUP_DM
+        isGroup: channelType(channelId) === GROUP_DM,
+        guildId
     };
 }
 
@@ -170,8 +206,11 @@ function sendReady() {
 
 // ---------- Discord -> Messenger ----------
 
+/** Server channels that have a Messenger window open. Only these get forwarded. */
+const watched = new Set<string>();
+
 function onMessageCreate({ channelId, message, optimistic }: any) {
-    if (!message?.author || !isDirectMessage(channelId)) return;
+    if (!message?.author || !(isDirectMessage(channelId) || watched.has(channelId))) return;
 
     // Optimistic copies are only interesting for our own messages ("sending…")
     const me = UserStore.getCurrentUser();
@@ -181,14 +220,19 @@ function onMessageCreate({ channelId, message, optimistic }: any) {
 }
 
 function onMessageSendFailed({ channelId, messageId }: any) {
-    if (!channelId || !messageId || !isDirectMessage(channelId)) return;
+    if (!channelId || !messageId || !(isDirectMessage(channelId) || watched.has(channelId))) return;
     emit({ type: "messageFailed", channelId, messageId: String(messageId) });
 }
 
 function onTypingStart({ channelId, userId }: any) {
-    if (!isDirectMessage(channelId) || userId === UserStore.getCurrentUser()?.id) return;
+    if (userId === UserStore.getCurrentUser()?.id) return;
 
-    emit({ type: "typing", channelId, userId, userName: displayNameOf(userId) });
+    if (isDirectMessage(channelId)) {
+        emit({ type: "typing", channelId, userId, userName: displayNameOf(userId) });
+    } else if (watched.has(channelId)) {
+        const guildId = ChannelStore.getChannel(channelId)?.guild_id;
+        emit({ type: "typing", channelId, userId, userName: nameIn(guildId, userId), guildId });
+    }
 }
 
 function onPresenceUpdates({ updates }: any) {
@@ -295,7 +339,7 @@ onIpcCommand(IpcCommands.MSN_GET_CONVERSATION, async (userId: string): Promise<M
 });
 
 onIpcCommand(IpcCommands.MSN_SEND_MESSAGE, async ({ channelId, content }: { channelId: string; content: string }) => {
-    if (channelType(channelId) !== DM) throw new Error("Not a DM channel");
+    if (channelType(channelId) !== DM && !watched.has(channelId)) throw new Error("This channel isn't open in Messenger");
 
     const send = VencordUtil().sendMessage;
     if (typeof send === "function") return void (await send(channelId, { content }, true));
@@ -310,7 +354,7 @@ onIpcCommand(IpcCommands.MSN_SEND_MESSAGE, async ({ channelId, content }: { chan
 });
 
 onIpcCommand(IpcCommands.MSN_START_TYPING, (channelId: string) => {
-    if (channelType(channelId) !== DM) return;
+    if (channelType(channelId) !== DM && !watched.has(channelId)) return;
     TypingActions?.startTyping?.(channelId);
 });
 
@@ -348,6 +392,90 @@ onIpcCommand(IpcCommands.MSN_CMD_SET_CUSTOM_STATUS, async (text: string) => {
               }
             : undefined
     );
+});
+
+// ---------- Servers ----------
+
+function guildIconUrl(guild: any) {
+    return guild?.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=64` : "";
+}
+
+onIpcCommand(IpcCommands.MSN_CMD_GET_SERVERS, (): MsnServer[] => {
+    // Same order as Discord's server sidebar (folders flattened)
+    let ids: string[] = SortedGuildStore?.getFlattenedGuildIds?.() ?? [];
+    if (!ids.length && GuildStore) ids = Object.keys(GuildStore.getGuilds());
+
+    return ids
+        .map(id => GuildStore?.getGuild(id))
+        .filter(Boolean)
+        .map((g: any) => ({ id: g.id, name: g.name, iconUrl: guildIconUrl(g) }));
+});
+
+onIpcCommand(IpcCommands.MSN_CMD_GET_CHANNELS, (guildId: string): MsnChannel[] => {
+    const all = GuildChannelStore?.getChannels?.(guildId);
+    if (!all) return [];
+
+    // Discord already filters these to channels you can see
+    const text = (all.SELECTABLE ?? []).map((c: any) => c.channel).filter((c: any) => SERVER_TEXT.has(c?.type));
+    const voice = (all.VOCAL ?? []).map((c: any) => c.channel).filter((c: any) => SERVER_VOICE.has(c?.type));
+
+    const categoryOf = (c: any) => (c.parent_id ? ChannelStore.getChannel(c.parent_id) : null);
+    const catPos = (c: any) => categoryOf(c)?.position ?? -1;
+    const byPosition = (a: any, b: any) => catPos(a) - catPos(b) || a.position - b.position;
+
+    // Discord's layout: grouped by category, text channels before voice within each
+    const rows: any[] = [...text.map((c: any) => ({ c, voice: false })), ...voice.map((c: any) => ({ c, voice: true }))];
+    rows.sort((a, b) => catPos(a.c) - catPos(b.c) || Number(a.voice) - Number(b.voice) || byPosition(a.c, b.c));
+
+    return rows.map(({ c, voice: isVoice }) => ({
+        id: c.id,
+        name: c.name,
+        kind: isVoice ? "voice" : "text",
+        category: categoryOf(c)?.name ?? "",
+        voiceCount: isVoice ? Object.keys(VoiceStateStore?.getVoiceStatesForChannel?.(c.id) ?? {}).length : undefined
+    }));
+});
+
+onIpcCommand(IpcCommands.MSN_CMD_GET_CHANNEL, async (channelId: string): Promise<MsnChannelConversation> => {
+    const channel = ChannelStore.getChannel(channelId);
+    // text channels, plus the text chat built into voice channels (opened next to calls)
+    if (!channel || !(SERVER_TEXT.has(channel.type) || SERVER_VOICE.has(channel.type))) {
+        throw new Error("That channel can't be opened in Messenger");
+    }
+
+    const guild = GuildStore?.getGuild(channel.guild_id);
+    watched.add(channelId);
+
+    let messages: MsnMessage[] = [];
+    try {
+        messages = await loadHistory(channelId);
+    } catch (e) {
+        VesktopLogger.error("[MSN] couldn't load channel history", e);
+    }
+
+    return {
+        channelId,
+        channel: {
+            id: channelId,
+            name: channel.name,
+            topic: channel.topic ?? "",
+            guildId: channel.guild_id,
+            guildName: guild?.name ?? "",
+            guildIconUrl: guildIconUrl(guild)
+        },
+        messages
+    };
+});
+
+onIpcCommand(IpcCommands.MSN_CMD_WATCH, ({ channelId, watch }: { channelId: string; watch: boolean }) => {
+    if (watch) watched.add(channelId);
+    else watched.delete(channelId);
+});
+
+// Voice channels and "Show in Discord" for server channels: open it in the real Discord window
+onIpcCommand(IpcCommands.MSN_CMD_SHOW_CHANNEL, (channelId: string) => {
+    const channel = ChannelStore.getChannel(channelId);
+    if (channel?.guild_id) NavigationRouter.transitionTo(`/channels/${channel.guild_id}/${channelId}`);
 });
 
 // "Show in Discord": jump to the DM in the normal Discord window

@@ -69,6 +69,14 @@
         color: #2f5269;
     }
 
+    .status-line.server .dot {
+        display: none;
+    }
+
+    .dp.server {
+        --ring: #7fa8c4;
+    }
+
     .status-line .dot {
         width: 9px;
         height: 9px;
@@ -513,6 +521,7 @@
 </header>
 
 <div class="toolbar">
+    <button id="call" type="button" title="Start a voice call" hidden>📞 Call</button>
     <button id="showInDiscord" type="button" title="Open this conversation in the normal Discord window">Show in Discord</button>
 </div>
 
@@ -563,7 +572,9 @@
     let friend = null;
     let messages = [];
     let ready = false;
-    let typingTimer = null;
+    let mode = "dm"; // "dm" or "channel"
+    let channel = null;
+    const typers = new Map(); // userId -> { name, timer }
     let lastTypingSent = 0;
     let lastReceived = null;
 
@@ -634,7 +645,19 @@
     // ---------- header / pictures ----------
 
     function renderPeople() {
-        if (friend) {
+        if (friend && mode === "channel") {
+            // A server channel: "#general", the server's name under it, the topic, the server icon
+            document.getElementById("name").textContent = friend.displayName;
+            document.getElementById("statusLine").className = "status-line server";
+            document.getElementById("status").textContent = channel?.guildName || "Server";
+            document.getElementById("pm").replaceChildren();
+            if (friend.customStatus) Msn.appendText(document.getElementById("pm"), friend.customStatus);
+            document.title = `${friend.displayName}${channel ? " - " + channel.guildName : ""}`;
+            // server icon, or the server's initial (not the "#" of the channel name)
+            fillDp(document.getElementById("friendDp"), { ...friend, displayName: channel?.guildName || friend.displayName });
+            document.getElementById("friendDp").classList.add("server");
+            input.placeholder = `Message ${friend.displayName}…`;
+        } else if (friend) {
             document.getElementById("name").textContent = friend.displayName;
             const b = bucket(friend.status);
             document.getElementById("statusLine").className = "status-line " + b;
@@ -799,9 +822,15 @@
         const line = document.getElementById("statusline");
         const text = document.getElementById("statustext");
 
-        if (typingTimer && friend) {
+        if (typers.size) {
+            const names = [...typers.values()].map(t => t.name);
             line.classList.add("typing");
-            text.textContent = `${friend.displayName} is typing a message…`;
+            text.textContent =
+                names.length === 1
+                    ? `${names[0]} is typing a message…`
+                    : names.length <= 3
+                      ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)} are typing…`
+                      : "Several people are typing…";
         } else {
             line.classList.remove("typing");
             text.textContent = lastReceived
@@ -815,9 +844,11 @@
         counter.classList.toggle("over", len > MAX_LEN);
     }
 
-    function stopFriendTyping() {
-        clearTimeout(typingTimer);
-        typingTimer = null;
+    function stopTyping(userId) {
+        const t = typers.get(userId);
+        if (!t) return;
+        clearTimeout(t.timer);
+        typers.delete(userId);
         renderStatusLine();
     }
 
@@ -946,6 +977,11 @@
     MsnNative.onChatInit(init => {
         me = init.me;
         friend = init.friend;
+        mode = init.mode === "channel" ? "channel" : "dm";
+        channel = init.channel || null;
+        // Nudges and calls are a one-on-one thing
+        document.getElementById("nudge").hidden = mode === "channel";
+        document.getElementById("call").hidden = mode === "channel" || !!init.error;
         renderPeople();
 
         messages = [];
@@ -974,7 +1010,7 @@
                 upsert(msg);
                 if (!msg.fromMe) {
                     lastReceived = msg.timestamp;
-                    stopFriendTyping();
+                    stopTyping(msg.authorId);
                 }
                 renderMessages();
                 renderStatusLine();
@@ -989,11 +1025,13 @@
                 }
                 break;
             }
-            case "typing":
-                clearTimeout(typingTimer);
-                typingTimer = setTimeout(stopFriendTyping, TYPING_SHOW_MS);
+            case "typing": {
+                const name = mode === "dm" && friend ? friend.displayName : ev.userName;
+                clearTimeout(typers.get(ev.userId)?.timer);
+                typers.set(ev.userId, { name, timer: setTimeout(() => stopTyping(ev.userId), TYPING_SHOW_MS) });
                 renderStatusLine();
                 break;
+            }
             case "presence":
                 if (friend && ev.userId === friend.id) {
                     friend.status = ev.status;
@@ -1025,6 +1063,13 @@
     });
 
     sendBtn.addEventListener("click", send);
+    document.getElementById("call").addEventListener("click", async () => {
+        try {
+            await MsnNative.startCall();
+        } catch (err) {
+            notice(String(err?.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ""), true);
+        }
+    });
     document.getElementById("nudge").addEventListener("click", nudge);
     document.addEventListener("keydown", e => {
         if (e.key === "Escape") picker.hidden = true;

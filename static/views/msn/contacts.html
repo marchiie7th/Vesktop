@@ -281,6 +281,102 @@
         box-shadow: 0 0 0 2px rgba(111, 176, 216, 0.25);
     }
 
+    /* ---------- Tabs ---------- */
+
+    .search {
+        border-bottom: none;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 2px;
+        padding: 0 10px;
+        border-bottom: 1px solid var(--line);
+        user-select: none;
+    }
+
+    .tabs button {
+        font: inherit;
+        padding: 5px 14px 6px;
+        margin-bottom: -1px;
+        color: #3f5f74;
+        background: transparent;
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        cursor: pointer;
+    }
+
+    .tabs button:hover {
+        color: #1a6fa8;
+    }
+
+    .tabs button.active {
+        color: var(--ink);
+        font-weight: 600;
+        background: linear-gradient(#ffffff, #ffffff);
+        border-color: var(--line);
+    }
+
+    body.view-full .tabs {
+        padding: 0 24px;
+    }
+
+    /* ---------- Servers ---------- */
+
+    .server-icon {
+        width: 20px;
+        height: 20px;
+        flex: none;
+        border-radius: 6px;
+        object-fit: cover;
+        box-shadow: 0 0 0 1px rgba(0, 40, 80, 0.15);
+    }
+
+    .server-icon.initials {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        font-weight: 600;
+        color: #3f6580;
+        background: linear-gradient(#f4f9fc, #d9e8f2);
+    }
+
+    .group-head .server-name {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .category {
+        grid-column: 1 / -1;
+        padding: 6px 10px 2px 18px;
+        font-size: 11px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .row .glyph {
+        width: 18px;
+        flex: none;
+        text-align: center;
+        color: #5d7d93;
+        font-weight: 600;
+    }
+
+    .row.voice .count {
+        color: var(--muted);
+        margin-left: 4px;
+    }
+
+    .row.loading {
+        color: var(--muted);
+        font-style: italic;
+    }
+
     /* ---------- Contact list ---------- */
 
     #list {
@@ -426,6 +522,108 @@
     footer button:hover {
         text-decoration: underline;
     }
+
+    footer .actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    /* ---------- Your scene picture (msn-assets/scene.*) ---------- */
+
+    header.has-scene {
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0) 45%, rgba(255, 255, 255, 0.85) 100%),
+            var(--scene) center / cover no-repeat;
+    }
+
+    header.has-scene .me-name,
+    header.has-scene .me-pm {
+        text-shadow:
+            0 0 3px rgba(255, 255, 255, 0.95),
+            0 0 8px rgba(255, 255, 255, 0.8);
+    }
+
+    /* ---------- Full view: big window, banner, columns ---------- */
+
+    body.view-full header {
+        min-height: 150px;
+        padding: 22px 28px 18px;
+        gap: 18px;
+        align-items: flex-end;
+    }
+
+    body.view-full header:not(.has-scene) {
+        /* original decorative banner: soft light and bubbles over the sky */
+        background:
+            radial-gradient(55% 150% at 100% 0%, rgba(255, 255, 255, 0.6), transparent 60%),
+            radial-gradient(circle at 80% 32%, rgba(255, 255, 255, 0.35) 0 46px, transparent 47px),
+            radial-gradient(circle at 89% 64%, rgba(255, 255, 255, 0.28) 0 26px, transparent 27px),
+            radial-gradient(circle at 72% 72%, rgba(255, 255, 255, 0.22) 0 16px, transparent 17px),
+            radial-gradient(circle at 94% 20%, rgba(255, 255, 255, 0.25) 0 12px, transparent 13px),
+            linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 78%, var(--paper) 100%);
+    }
+
+    body.view-full header .dp {
+        width: 104px;
+        height: 104px;
+        padding: 5px;
+        border-radius: 14px;
+    }
+
+    body.view-full header .dp .initial {
+        font-size: 40px;
+    }
+
+    body.view-full .me-name {
+        font-size: 21px;
+    }
+
+    body.view-full .me-status {
+        font-size: 13px;
+    }
+
+    body.view-full .me-pm {
+        font-size: 13.5px;
+        margin-top: 5px;
+    }
+
+    body.view-full .search {
+        padding: 10px 24px;
+    }
+
+    body.view-full .search input {
+        padding: 7px 10px;
+        font-size: 13px;
+    }
+
+    body.view-full #list {
+        padding: 8px 14px 14px;
+    }
+
+    body.view-full .group-head {
+        font-size: 13.5px;
+        padding: 8px 10px 4px;
+    }
+
+    body.view-full .rows {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1px 10px;
+        padding: 0 4px;
+    }
+
+    body.view-full .group.collapsed .rows {
+        display: none;
+    }
+
+    body.view-full .row {
+        margin: 0;
+        padding-left: 10px;
+    }
+
+    body.view-full footer {
+        padding: 7px 24px;
+    }
 </style>
 
 <div class="titlebar">
@@ -460,11 +658,19 @@
     <input id="search" type="search" placeholder="Search contacts…" autocomplete="off" spellcheck="false" />
 </div>
 
+<div class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="contacts" class="active">Contacts</button>
+    <button type="button" role="tab" data-tab="servers">Servers</button>
+</div>
+
 <div id="list" tabindex="0"></div>
 
 <footer>
     <span id="summary"></span>
-    <button id="showDiscord" type="button">Show Discord</button>
+    <span class="actions">
+        <button id="viewToggle" type="button" title="Switch between the skinny list and the big window">Full view</button>
+        <button id="showDiscord" type="button">Show Discord</button>
+    </span>
 </footer>
 
 <script src="./msn-common.js"></script>
@@ -573,7 +779,7 @@
         );
     }
 
-    function renderList() {
+    function renderContacts() {
         const list = document.getElementById("list");
         const scroll = list.scrollTop;
         const byGroup = Object.fromEntries(GROUPS.map(g => [g.key, []]));
@@ -690,6 +896,237 @@
         if (id) MsnNative.openChat(id);
     }
 
+    // ---------- Tabs: Contacts / Servers ----------
+
+    let tab = "contacts";
+    try {
+        if (localStorage.getItem("msn.tab") === "servers") tab = "servers";
+    } catch {}
+
+    function renderList() {
+        if (tab === "servers") renderServers();
+        else renderContacts();
+    }
+
+    function setTab(next) {
+        tab = next;
+        try {
+            localStorage.setItem("msn.tab", tab);
+        } catch {}
+        for (const b of document.querySelectorAll(".tabs button")) b.classList.toggle("active", b.dataset.tab === tab);
+        document.getElementById("search").placeholder = tab === "servers" ? "Search servers and channels…" : "Search contacts…";
+        selectedId = null;
+        if (tab === "servers") loadServers();
+        renderList();
+    }
+
+    for (const b of document.querySelectorAll(".tabs button")) b.addEventListener("click", () => setTab(b.dataset.tab));
+
+    // ---------- Servers ----------
+
+    let servers = null; // null until loaded
+    let serversError = null;
+    const channelsByServer = new Map();
+    const loadingChannels = new Set();
+    const openServers = new Set(loadOpenServers());
+
+    function loadOpenServers() {
+        try {
+            return JSON.parse(localStorage.getItem("msn.openServers") || "[]");
+        } catch {
+            return [];
+        }
+    }
+
+    function saveOpenServers() {
+        try {
+            localStorage.setItem("msn.openServers", JSON.stringify([...openServers]));
+        } catch {}
+    }
+
+    async function loadServers() {
+        try {
+            servers = await MsnNative.getServers();
+            serversError = null;
+        } catch (err) {
+            serversError = String(err?.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
+        }
+        // refresh the channel lists of servers that are open
+        for (const id of openServers) loadChannels(id);
+        if (tab === "servers") renderList();
+    }
+
+    async function loadChannels(guildId) {
+        if (loadingChannels.has(guildId)) return;
+        loadingChannels.add(guildId);
+        try {
+            channelsByServer.set(guildId, await MsnNative.getChannels(guildId));
+        } catch {
+            channelsByServer.set(guildId, []);
+        }
+        loadingChannels.delete(guildId);
+        if (tab === "servers") scheduleRender();
+    }
+
+    function serverIcon(server) {
+        const src = safeAvatar(server.iconUrl);
+        if (src) {
+            const img = document.createElement("img");
+            img.className = "server-icon";
+            img.alt = "";
+            img.draggable = false;
+            img.referrerPolicy = "no-referrer";
+            img.src = src;
+            return img;
+        }
+        const span = document.createElement("span");
+        span.className = "server-icon initials";
+        span.textContent = server.name
+            .split(/\s+/)
+            .map(w => w.match(/[\p{L}\p{N}]/u)?.[0] ?? "")
+            .join("")
+            .slice(0, 2)
+            .toUpperCase();
+        return span;
+    }
+
+    function channelRow(ch) {
+        const row = document.createElement("div");
+        row.className = "row " + ch.kind;
+        row.dataset.id = ch.id;
+        row.dataset.kind = ch.kind;
+        if (ch.id === selectedId) row.classList.add("selected");
+        row.title = ch.kind === "voice" ? `${ch.name}: voice channel. Double-click to join the call` : `#${ch.name}`;
+
+        const glyph = document.createElement("span");
+        glyph.className = "glyph";
+        glyph.textContent = ch.kind === "voice" ? "🔊" : "#";
+
+        const text = document.createElement("div");
+        text.className = "text";
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = ch.name;
+        text.append(name);
+        if (ch.kind === "voice" && ch.voiceCount) {
+            const count = document.createElement("span");
+            count.className = "count";
+            count.textContent = `(${ch.voiceCount} in call)`;
+            text.append(count);
+        }
+
+        row.append(glyph, text);
+        return row;
+    }
+
+    function renderServers() {
+        const list = document.getElementById("list");
+        const scroll = list.scrollTop;
+        const frag = document.createDocumentFragment();
+
+        if (serversError || !servers) {
+            const note = document.createElement("div");
+            note.className = "empty-note";
+            note.textContent = serversError ? `Couldn't load your servers: ${serversError}` : "Loading your servers…";
+            list.replaceChildren(note);
+            document.getElementById("summary").textContent = "";
+            return;
+        }
+
+        let shown = 0;
+        for (const server of servers) {
+            const channels = channelsByServer.get(server.id);
+            const nameHit = !query || server.name.toLowerCase().includes(query);
+            const channelHits = query && channels ? channels.filter(c => c.name.toLowerCase().includes(query)) : [];
+            if (!nameHit && !channelHits.length) continue;
+            shown++;
+
+            // While searching, servers with matching channels open up to show them
+            const isOpen = openServers.has(server.id) || channelHits.length > 0;
+            const visible = query && !nameHit ? channelHits : channels;
+
+            const group = document.createElement("section");
+            group.className = "group" + (isOpen ? "" : " collapsed");
+
+            const head = document.createElement("div");
+            head.className = "group-head";
+            const tri = document.createElement("span");
+            tri.className = "tri";
+            const name = document.createElement("span");
+            name.className = "server-name";
+            name.textContent = server.name;
+            head.append(tri, serverIcon(server), name);
+            head.addEventListener("click", () => {
+                if (openServers.has(server.id)) {
+                    openServers.delete(server.id);
+                } else {
+                    openServers.add(server.id);
+                    loadChannels(server.id); // refresh every time it opens
+                }
+                saveOpenServers();
+                renderList();
+            });
+
+            const rows = document.createElement("div");
+            rows.className = "rows";
+
+            if (isOpen) {
+                if (!visible) {
+                    const loading = document.createElement("div");
+                    loading.className = "row loading";
+                    loading.textContent = "Loading channels…";
+                    rows.append(loading);
+                    loadChannels(server.id);
+                } else if (!visible.length) {
+                    const none = document.createElement("div");
+                    none.className = "row loading";
+                    none.textContent = "No channels you can open here.";
+                    rows.append(none);
+                } else {
+                    let category = null;
+                    for (const ch of visible) {
+                        if (ch.category !== category) {
+                            category = ch.category;
+                            if (category) {
+                                const c = document.createElement("div");
+                                c.className = "category";
+                                c.textContent = category;
+                                rows.append(c);
+                            }
+                        }
+                        rows.append(channelRow(ch));
+                    }
+                }
+            }
+
+            group.append(head, rows);
+            frag.append(group);
+        }
+
+        if (!shown) {
+            const note = document.createElement("div");
+            note.className = "empty-note";
+            note.textContent = query ? `No servers or open channels match “${query}”.` : "You're not in any servers yet.";
+            frag.append(note);
+        }
+
+        list.replaceChildren(frag);
+        list.scrollTop = scroll;
+        document.getElementById("summary").textContent = `${servers.length} servers`;
+    }
+
+    /** Double-click / Enter on a row: chat with a friend, open a text channel, or a voice channel in Discord */
+    function activate(row) {
+        if (!row?.dataset.id) return;
+        if (row.dataset.kind === "text") MsnNative.openChannel(row.dataset.id);
+        else if (row.dataset.kind === "voice") MsnNative.joinVoice(row.dataset.id).catch(showError);
+        else openChat(row.dataset.id);
+    }
+
+    function rowById(id) {
+        return id ? document.querySelector(`.row[data-id="${CSS.escape(id)}"]`) : null;
+    }
+
     // ---------- Wiring ----------
 
     MsnNative.onState(state => {
@@ -698,6 +1135,8 @@
         for (const f of state.friends) friends.set(f.id, f);
         renderMe();
         renderList();
+        // Servers asked for before Discord finished signing in come back empty: ask again
+        if (tab === "servers" && !servers?.length) loadServers();
     });
 
     MsnNative.onEvent(ev => {
@@ -726,11 +1165,11 @@
 
     list.addEventListener("dblclick", e => {
         const row = e.target.closest(".row");
-        if (row) openChat(row.dataset.id);
+        if (row) activate(row);
     });
 
     list.addEventListener("keydown", e => {
-        const rows = [...document.querySelectorAll(".group:not(.collapsed) .row")];
+        const rows = [...document.querySelectorAll(".group:not(.collapsed) .row[data-id]")];
         if (!rows.length) return;
         const i = rows.findIndex(r => r.dataset.id === selectedId);
 
@@ -741,7 +1180,7 @@
             e.preventDefault();
             select(rows[Math.max(i - 1, 0)].dataset.id);
         } else if (e.key === "Enter") {
-            openChat(selectedId);
+            activate(rowById(selectedId));
         }
     });
 
@@ -753,14 +1192,14 @@
     search.addEventListener("keydown", e => {
         if (e.key === "ArrowDown") {
             e.preventDefault();
-            const first = document.querySelector(".group:not(.collapsed) .row");
+            const first = document.querySelector(".group:not(.collapsed) .row[data-id]");
             if (first) {
                 select(first.dataset.id);
                 list.focus();
             }
         } else if (e.key === "Enter") {
-            const first = document.querySelector(".group:not(.collapsed) .row");
-            if (first) openChat(first.dataset.id);
+            const first = document.querySelector(".group:not(.collapsed) .row[data-id]");
+            if (first) activate(first);
         } else if (e.key === "Escape") {
             search.value = "";
             query = "";
@@ -769,6 +1208,36 @@
     });
 
     document.getElementById("showDiscord").addEventListener("click", () => MsnNative.showDiscord());
+
+    // ---------- compact / full view ----------
+
+    let view = "compact";
+    const viewToggle = document.getElementById("viewToggle");
+
+    function applyView(v) {
+        view = v === "full" ? "full" : "compact";
+        document.body.classList.toggle("view-full", view === "full");
+        viewToggle.textContent = view === "full" ? "Compact view" : "Full view";
+    }
+
+    viewToggle.addEventListener("click", () => {
+        const next = view === "full" ? "compact" : "full";
+        applyView(next);
+        MsnNative.setView(next).catch(() => {});
+    });
+
+    MsnNative.getView()
+        .then(applyView)
+        .catch(() => applyView("compact"));
+
+    /** Your msn-assets/scene picture behind the header, if you added one */
+    function applyScene() {
+        const url = Msn.assets().scene;
+        const header = document.querySelector("header");
+        if (!url) return;
+        header.style.setProperty("--scene", `url(${JSON.stringify(url)})`);
+        header.classList.add("has-scene");
+    }
 
     // ---------- your status & personal message ----------
 
@@ -857,9 +1326,10 @@
         input.addEventListener("blur", () => finish(true));
     });
 
-    renderList();
+    setTab(tab);
     // redraw once your emoticons / frames are known
     Msn.ready.then(() => {
+        applyScene();
         renderMe();
         renderList();
     });

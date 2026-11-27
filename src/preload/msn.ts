@@ -22,6 +22,17 @@ contextBridge.exposeInMainWorld("MsnNative", {
     openChat: (userId: string) => ipcRenderer.invoke(IpcEvents.MSN_OPEN_CHAT, userId),
     setStatus: (status: string) => ipcRenderer.invoke(IpcEvents.MSN_SET_STATUS, status),
     setCustomStatus: (text: string) => ipcRenderer.invoke(IpcEvents.MSN_SET_CUSTOM_STATUS, text),
+    // servers
+    getServers: () => ipcRenderer.invoke(IpcEvents.MSN_GET_SERVERS),
+    getChannels: (guildId: string) => ipcRenderer.invoke(IpcEvents.MSN_GET_CHANNELS, guildId),
+    openChannel: (channelId: string) => ipcRenderer.invoke(IpcEvents.MSN_OPEN_CHANNEL, channelId),
+    showChannelInDiscord: (channelId: string) => ipcRenderer.invoke(IpcEvents.MSN_SHOW_CHANNEL_IN_DISCORD, channelId),
+    joinVoice: (channelId: string) => ipcRenderer.invoke(IpcEvents.MSN_JOIN_VOICE, channelId),
+    /** chat windows: call the person this conversation is with */
+    startCall: () => ipcRenderer.invoke(IpcEvents.MSN_START_CALL),
+    /** "compact" (skinny list) or "full" (big window with banner and columns) */
+    getView: () => ipcRenderer.invoke(IpcEvents.MSN_GET_VIEW) as Promise<"compact" | "full">,
+    setView: (view: "compact" | "full") => ipcRenderer.invoke(IpcEvents.MSN_SET_VIEW, view),
 
     // ---- every window ----
     /** Small live updates: presence, messages, typing */

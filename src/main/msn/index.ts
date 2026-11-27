@@ -10,9 +10,21 @@
 
 import { join } from "path";
 
-import { BrowserWindow, IpcMainInvokeEvent, shell } from "electron";
+import { BrowserWindow, IpcMainInvokeEvent, screen, shell } from "electron";
 import { IpcCommands, IpcEvents } from "shared/IpcEvents";
-import type { MsnChatInit, MsnConversation, MsnEvent, MsnPerson, MsnSoundName, MsnState } from "shared/msn";
+import type {
+    MsnCallState,
+    MsnChannel,
+    MsnChannelConversation,
+    MsnChatInit,
+    MsnContactsView,
+    MsnConversation,
+    MsnEvent,
+    MsnPerson,
+    MsnServer,
+    MsnSoundName,
+    MsnState
+} from "shared/msn";
 import { isNudge, MSN_NUDGE_TEXT } from "shared/msn";
 
 import { sendRendererCommand } from "../ipcCommands";
@@ -36,6 +48,16 @@ ensureMsnAssetsDir();
 
 let contactsWin: BrowserWindow | undefined;
 
+/** Contact list sizes for the skinny and big layouts */
+const VIEW_SIZES: Record<MsnContactsView, { width: number; height: number; minWidth: number; minHeight: number }> = {
+    compact: { width: 340, height: 680, minWidth: 270, minHeight: 420 },
+    full: { width: 940, height: 660, minWidth: 640, minHeight: 440 }
+};
+
+function currentView(): MsnContactsView {
+    return Settings.store.msnContactsView === "full" ? "full" : "compact";
+}
+
 // Latest known state. Messenger windows get a full copy when they open,
 // then small updates as they happen.
 let me: MsnPerson | undefined;
@@ -44,6 +66,9 @@ let readyAt = 0;
 let signinSoundPending = false;
 
 interface Chat {
+    /** "dm": a conversation with one person. "channel": a server channel. */
+    kind: "dm" | "channel";
+    /** The other person (DMs), or "ch:<channel id>" (server channels) */
     userId: string;
     win: BrowserWindow;
     channelId?: string;
@@ -54,7 +79,7 @@ interface Chat {
     lastNudgeSent?: number;
 }
 
-const chats = new Map<string, Chat>(); // by the other person's user id
+const chats = new Map<string, Chat>(); // by the other person's user id, or "ch:<id>" for server channels
 const chatByChannel = new Map<string, Chat>();
 
 function currentState(): MsnState | undefined {
@@ -189,10 +214,7 @@ export function openMsnWindow() {
 
     const win = (contactsWin = new BrowserWindow({
         title: "Messenger",
-        width: 340,
-        height: 680,
-        minWidth: 270,
-        minHeight: 420,
+        ...VIEW_SIZES[currentView()],
         frame: false,
         icon: ICON,
         autoHideMenuBar: true,
@@ -262,7 +284,7 @@ async function openChat(userId: string, quiet = false, nudged = false) {
     });
     frameless(win);
 
-    const chat: Chat = { userId, win, queue: [], shakeOnShow: nudged };
+    const chat: Chat = { kind: "dm", userId, win, queue: [], shakeOnShow: nudged };
     chats.set(userId, chat);
 
     win.setMenuBarVisibility(false);
@@ -318,6 +340,89 @@ async function openChat(userId: string, quiet = false, nudged = false) {
     for (const event of queued) win.webContents.send("msn-event", event);
 }
 
+/** Open (or bring up) a server text channel in a Messenger chat window */
+async function openChannel(channelId: string) {
+    const key = "ch:" + channelId;
+    const existing = chats.get(key);
+    if (existing && alive(existing.win)) {
+        showWindow(existing.win);
+        existing.win.focus();
+        return;
+    }
+
+    const win = new BrowserWindow({
+        title: "Channel - Conversation",
+        width: 640,
+        height: 560,
+        minWidth: 420,
+        minHeight: 400,
+        show: false,
+        frame: false,
+        icon: ICON,
+        autoHideMenuBar: true,
+        backgroundColor: "#8ccbec",
+        webPreferences: msnWebPreferences()
+    });
+    frameless(win);
+
+    const chat: Chat = { kind: "channel", userId: key, win, channelId, queue: [] };
+    chats.set(key, chat);
+    chatByChannel.set(channelId, chat);
+
+    win.setMenuBarVisibility(false);
+    guardNavigation(win);
+    win.on("focus", () => win.flashFrame(false));
+    win.on("closed", () => {
+        if (chats.get(key) === chat) chats.delete(key);
+        if (chatByChannel.get(channelId) === chat) chatByChannel.delete(channelId);
+        // stop forwarding this channel's messages
+        sendRendererCommand(IpcCommands.MSN_CMD_WATCH, { channelId, watch: false }).catch(() => {});
+    });
+    win.once("ready-to-show", () => win.show());
+
+    const loaded = new Promise<void>(resolve => win.webContents.once("did-finish-load", () => resolve()));
+    loadView(win, "msn/chat.html");
+
+    let init: MsnChatInit;
+    try {
+        const convo = await sendRendererCommand<MsnChannelConversation>(IpcCommands.MSN_CMD_GET_CHANNEL, channelId);
+        init = {
+            me: me!,
+            mode: "channel",
+            channelId,
+            channel: convo.channel,
+            messages: convo.messages,
+            // the server stands in for "the other person" (name, picture)
+            friend: {
+                id: convo.channel.guildId,
+                username: convo.channel.guildName,
+                displayName: "#" + convo.channel.name,
+                avatarUrl: convo.channel.guildIconUrl,
+                status: "online",
+                customStatus: convo.channel.topic
+            }
+        };
+    } catch (err) {
+        console.error("[MSN] couldn't open channel", err);
+        init = {
+            me: me!,
+            mode: "channel",
+            friend: { id: channelId, username: "", displayName: "Channel", avatarUrl: "", status: "offline", customStatus: "" },
+            error: `Couldn't open this channel.\n${err instanceof Error ? err.message : String(err)}`
+        };
+    }
+
+    await loaded;
+    if (!alive(win)) return;
+
+    win.setTitle(`${init.friend.displayName}${init.channel ? " - " + init.channel.guildName : ""}`);
+    win.webContents.send("msn-chat-init", init);
+
+    const queued = chat.queue ?? [];
+    chat.queue = null;
+    for (const event of queued) win.webContents.send("msn-event", event);
+}
+
 function closeAllChats() {
     for (const chat of chats.values()) if (alive(chat.win)) chat.win.close();
     chats.clear();
@@ -335,6 +440,16 @@ function previewOf(event: Extract<MsnEvent, { type: "message" }>) {
 function routeMessage(event: Extract<MsnEvent, { type: "message" }>) {
     // Group DMs stay in Discord for now
     if (event.isGroup) return;
+
+    // Server channel: only to its open window. No pop-ups, sounds or nudges for server chatter.
+    if (event.guildId) {
+        const chat = chatByChannel.get(event.channelId);
+        if (chat && alive(chat.win)) {
+            deliverToChat(chat, event);
+            if (!event.fromMe && !chat.win.isFocused()) chat.win.flashFrame(true);
+        }
+        return;
+    }
 
     const userId = event.fromMe ? chatByChannel.get(event.channelId)?.userId : event.authorId;
     if (!userId) return;
@@ -430,6 +545,11 @@ handle(IpcEvents.MSN_EVENT, (e, event: MsnEvent) => {
         }
 
         case "typing": {
+            if (event.guildId) {
+                const chat = chatByChannel.get(event.channelId);
+                if (chat) deliverToChat(chat, event);
+                return;
+            }
             const chat = chats.get(event.userId);
             if (chat && chat.channelId === event.channelId) deliverToChat(chat, event);
             return;
@@ -468,6 +588,10 @@ handle(IpcEvents.MSN_EVENT, (e, event: MsnEvent) => {
             pushState();
             for (const chat of chats.values()) deliverToChat(chat, event);
             return;
+
+        case "incomingCall":
+            onIncomingCall(event.channelId, event.userId);
+            return;
     }
 });
 
@@ -501,9 +625,11 @@ handle(IpcEvents.MSN_CHAT_SHOW_IN_DISCORD, async e => {
     const chat = chatForSender(e);
     if (!chat) return;
 
-    await sendRendererCommand(IpcCommands.MSN_OPEN_DM, chat.userId).catch(err =>
-        console.error("[MSN] failed to open DM", err)
-    );
+    const opening =
+        chat.kind === "channel"
+            ? sendRendererCommand(IpcCommands.MSN_CMD_SHOW_CHANNEL, chat.channelId)
+            : sendRendererCommand(IpcCommands.MSN_OPEN_DM, chat.userId);
+    await opening.catch(err => console.error("[MSN] failed to show in Discord", err));
     showWindow(mainWin);
     mainWin.setSkipTaskbar(false);
 });
@@ -511,6 +637,7 @@ handle(IpcEvents.MSN_CHAT_SHOW_IN_DISCORD, async e => {
 handle(IpcEvents.MSN_NUDGE, async e => {
     const chat = chatForSender(e);
     if (!chat?.channelId) throw new Error("This conversation isn't connected yet");
+    if (chat.kind === "channel") throw new Error("Nudges only work in one-on-one conversations.");
 
     const now = Date.now();
     if (chat.lastNudgeSent && now - chat.lastNudgeSent < NUDGE_COOLDOWN_MS) {
@@ -524,6 +651,33 @@ handle(IpcEvents.MSN_NUDGE, async e => {
 });
 
 handle(IpcEvents.MSN_GET_ASSETS, () => getMsnAssets());
+
+handle(IpcEvents.MSN_GET_VIEW, () => currentView());
+
+/** Switch the contact list between the skinny and the big layout, keeping it on screen */
+handle(IpcEvents.MSN_SET_VIEW, (e, view: MsnContactsView) => {
+    if (!alive(contactsWin) || e.sender !== contactsWin.webContents) return;
+    if (view !== "compact" && view !== "full") return;
+
+    Settings.store.msnContactsView = view;
+    const size = VIEW_SIZES[view];
+    const win = contactsWin;
+
+    if (win.isMaximized()) win.unmaximize();
+    win.setMinimumSize(size.minWidth, size.minHeight);
+
+    const { workArea } = screen.getDisplayMatching(win.getBounds());
+    const width = Math.min(size.width, workArea.width);
+    const height = Math.min(size.height, workArea.height);
+    const [x, y] = win.getPosition();
+
+    win.setBounds({
+        width,
+        height,
+        x: Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - width)),
+        y: Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - height))
+    });
+});
 
 handle(IpcEvents.MSN_SET_STATUS, async (e, status: string) => {
     if (e.sender !== contactsWin?.webContents || !me) return;
@@ -548,3 +702,122 @@ export function openMsnAssetsFolder() {
     ensureMsnAssetsDir();
     shell.openPath(MSN_ASSETS_DIR);
 }
+
+// ---------- Servers ----------
+
+const SNOWFLAKE = /^\d{5,25}$/;
+
+function fromContacts(e: IpcMainInvokeEvent) {
+    return alive(contactsWin) && e.sender === contactsWin.webContents;
+}
+
+handle(IpcEvents.MSN_GET_SERVERS, async e => {
+    if (!fromContacts(e) || !me) return [];
+    return sendRendererCommand<MsnServer[]>(IpcCommands.MSN_CMD_GET_SERVERS);
+});
+
+handle(IpcEvents.MSN_GET_CHANNELS, async (e, guildId: string) => {
+    if (!fromContacts(e) || !me || typeof guildId !== "string" || !SNOWFLAKE.test(guildId)) return [];
+    return sendRendererCommand<MsnChannel[]>(IpcCommands.MSN_CMD_GET_CHANNELS, guildId);
+});
+
+handle(IpcEvents.MSN_OPEN_CHANNEL, (e, channelId: string) => {
+    if (!fromContacts(e) || !me || typeof channelId !== "string" || !SNOWFLAKE.test(channelId)) return;
+    openChannel(channelId);
+});
+
+// Voice channels live in Discord: open the channel there so you can join
+handle(IpcEvents.MSN_SHOW_CHANNEL_IN_DISCORD, async (e, channelId: string) => {
+    if (!fromContacts(e) || typeof channelId !== "string" || !SNOWFLAKE.test(channelId)) return;
+    await sendRendererCommand(IpcCommands.MSN_CMD_SHOW_CHANNEL, channelId).catch(() => {});
+    showWindow(mainWin);
+    mainWin.setSkipTaskbar(false);
+});
+
+// ---------- Calls ----------
+// The call screen itself lives in the Discord window (that's where the audio/video is).
+// Here we just show that window when a call starts, dock the chat next to it, and hide it again after.
+
+let callShownByUs = false;
+const recentIncoming = new Map<string, number>();
+
+/** Put a chat window right next to the call, the same height, like Messenger's one-window call */
+function dockBesideCall(win: BrowserWindow) {
+    if (!alive(win) || !alive(mainWin)) return;
+
+    const call = mainWin.getBounds();
+    const { workArea } = screen.getDisplayMatching(call);
+    const width = 420;
+
+    let x: number | null = null;
+    if (call.x - width >= workArea.x) x = call.x - width;
+    else if (call.x + call.width + width <= workArea.x + workArea.width) x = call.x + call.width;
+    if (x === null) return; // no room: leave it where it is
+
+    win.setBounds({ x, y: call.y, width, height: call.height });
+}
+
+handle(IpcEvents.MSN_CALL_STATE, (e, state: MsnCallState) => {
+    if (!fromDiscordWindow(e) || Settings.store.msnMode === false) return;
+
+    if (state.active) {
+        if (!mainWin.isVisible()) callShownByUs = true;
+        showWindow(mainWin);
+        mainWin.setSkipTaskbar(false);
+
+        // Room for the video panes
+        const [w, h] = mainWin.getSize();
+        if (w < 760 || h < 540) mainWin.setSize(Math.max(w, 760), Math.max(h, 540));
+
+        // The conversation, docked beside the call
+        if (state.channelId && me) {
+            if (state.kind === "dm" && state.userId) openChat(state.userId);
+            else if (state.kind === "server") openChannel(state.channelId);
+
+            const chat = state.kind === "dm" && state.userId ? chats.get(state.userId) : chats.get("ch:" + state.channelId);
+            if (chat) dockBesideCall(chat.win);
+        }
+    } else {
+        if (callShownByUs && isMsnActive()) mainWin.hide();
+        callShownByUs = false;
+    }
+});
+
+function onIncomingCall(channelId: string, userId: string) {
+    // Discord re-announces ringing calls; one pop-up per call is enough
+    const last = recentIncoming.get(channelId) ?? 0;
+    if (Date.now() - last < 30_000) return;
+    recentIncoming.set(channelId, Date.now());
+
+    if (!toastsOn()) return;
+    const person = friends.get(userId) ?? {
+        id: userId,
+        username: "",
+        displayName: "Someone",
+        avatarUrl: "",
+        status: "online",
+        customStatus: ""
+    };
+    showToast(
+        { title: `${person.displayName} is calling you`, body: "Click to answer.", person, sound: soundsOn() ? "online" : null },
+        "call:" + channelId,
+        () => {
+            sendRendererCommand(IpcCommands.MSN_CMD_JOIN_VOICE, channelId).catch(err =>
+                console.error("[MSN] couldn't answer call", err)
+            );
+        }
+    );
+}
+
+/** "Call" button in a one-on-one chat window */
+handle(IpcEvents.MSN_START_CALL, async e => {
+    const chat = chatForSender(e);
+    if (!chat?.channelId || chat.kind !== "dm") throw new Error("Calls start from one-on-one conversations");
+    await sendRendererCommand(IpcCommands.MSN_CMD_START_CALL, chat.channelId);
+});
+
+/** Double-click on a voice channel in the Servers tab */
+handle(IpcEvents.MSN_JOIN_VOICE, async (e, channelId: string) => {
+    if (!fromContacts(e) || typeof channelId !== "string" || !SNOWFLAKE.test(channelId)) return;
+    await sendRendererCommand(IpcCommands.MSN_CMD_JOIN_VOICE, channelId);
+});

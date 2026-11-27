@@ -4,3 +4,17 @@ node_modules
 .DS_Store
 .idea/
 .pnpm-store/
+# Portable Vesktop app + its data, when kept in this folder.
+# Data/ holds your Discord login - never commit or push it.
+/Data/
+/locales/
+/resources/
+/*.exe
+/*.dll
+/*.pak
+/*.bin
+/*.dat
+/LICENSE.electron.txt
+/LICENSES.chromium.html
+/vk_swiftshader_icd.json
+/debug.log

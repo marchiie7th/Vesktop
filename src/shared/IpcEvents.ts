@@ -88,7 +88,16 @@ export const enum IpcEvents {
     MSN_TOAST_CLICK = "VCD_MSN_TOAST_CLICK",
     MSN_TOAST_CLOSE = "VCD_MSN_TOAST_CLOSE",
     MSN_SET_STATUS = "VCD_MSN_SET_STATUS",
-    MSN_SET_CUSTOM_STATUS = "VCD_MSN_SET_CUSTOM_STATUS"
+    MSN_SET_CUSTOM_STATUS = "VCD_MSN_SET_CUSTOM_STATUS",
+    MSN_GET_VIEW = "VCD_MSN_GET_VIEW",
+    MSN_SET_VIEW = "VCD_MSN_SET_VIEW",
+    MSN_GET_SERVERS = "VCD_MSN_GET_SERVERS",
+    MSN_GET_CHANNELS = "VCD_MSN_GET_CHANNELS",
+    MSN_OPEN_CHANNEL = "VCD_MSN_OPEN_CHANNEL",
+    MSN_SHOW_CHANNEL_IN_DISCORD = "VCD_MSN_SHOW_CHANNEL_IN_DISCORD",
+    MSN_CALL_STATE = "VCD_MSN_CALL_STATE",
+    MSN_START_CALL = "VCD_MSN_START_CALL",
+    MSN_JOIN_VOICE = "VCD_MSN_JOIN_VOICE"
 }
 
 export const enum UpdaterIpcEvents {
@@ -122,5 +131,12 @@ export const enum IpcCommands {
     MSN_SEND_MESSAGE = "msn:sendMessage",
     MSN_START_TYPING = "msn:startTyping",
     MSN_CMD_SET_STATUS = "msn:setStatus",
-    MSN_CMD_SET_CUSTOM_STATUS = "msn:setCustomStatus"
+    MSN_CMD_SET_CUSTOM_STATUS = "msn:setCustomStatus",
+    MSN_CMD_GET_SERVERS = "msn:getServers",
+    MSN_CMD_GET_CHANNELS = "msn:getChannels",
+    MSN_CMD_GET_CHANNEL = "msn:getChannel",
+    MSN_CMD_WATCH = "msn:watch",
+    MSN_CMD_SHOW_CHANNEL = "msn:showChannel",
+    MSN_CMD_JOIN_VOICE = "msn:joinVoice",
+    MSN_CMD_START_CALL = "msn:startCall"
 }

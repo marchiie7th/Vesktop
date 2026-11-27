@@ -274,5 +274,5 @@ window.Msn = (() => {
         return Object.entries(assets.emoticons || {});
     }
 
-    return { ready, play, appendText, appendRich, isNudge, emoticonList };
+    return { ready, play, appendText, appendRich, isNudge, emoticonList, assets: () => assets };
 })();

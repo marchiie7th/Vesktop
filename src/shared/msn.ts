@@ -49,6 +49,8 @@ export interface MsnMessage {
     pending: boolean;
     /** Group DM (3+ people). Messenger chat windows only handle 1:1 for now. */
     isGroup: boolean;
+    /** Set for server channel messages */
+    guildId?: string;
 }
 
 /** What a chat window needs to open: who, which DM channel, and recent history */
@@ -62,6 +64,9 @@ export interface MsnChatInit extends Partial<MsnConversation> {
     me: MsnPerson;
     friend: MsnPerson;
     error?: string;
+    /** "channel" when this window is a server channel; then `channel` is set */
+    mode?: "dm" | "channel";
+    channel?: MsnChannelInfo;
 }
 
 export type MsnEvent =
@@ -76,6 +81,7 @@ export type MsnEvent =
           channelId: string;
           userId: string;
           userName: string;
+          guildId?: string;
       }
     | {
           type: "presence";
@@ -93,7 +99,24 @@ export type MsnEvent =
           /** Your own status / personal message changed */
           type: "self";
           me: MsnPerson;
+      }
+    | {
+          /** Someone is calling you in a DM */
+          type: "incomingCall";
+          channelId: string;
+          userId: string;
       };
+
+// ---------- Calls ----------
+
+/** Sent by the call screen in the Discord window when you join or leave a call */
+export interface MsnCallState {
+    active: boolean;
+    channelId?: string;
+    kind?: "dm" | "server";
+    /** DM calls: the other person */
+    userId?: string;
+}
 
 // ---------- Step 4: the MSN feel ----------
 
@@ -118,6 +141,44 @@ export interface MsnAssets {
     emoticons: Record<string, string>;
     /** msn-assets/style.css, applied to every Messenger window */
     css: string | null;
+    /** msn-assets/scene.(png|jpg|...), the banner behind your name on the contact list */
+    scene: string | null;
+}
+
+export type MsnContactsView = "compact" | "full";
+
+// ---------- Servers ----------
+
+export interface MsnServer {
+    id: string;
+    name: string;
+    iconUrl: string;
+}
+
+export interface MsnChannel {
+    id: string;
+    name: string;
+    kind: "text" | "voice";
+    /** Category name, or "" for channels outside any category */
+    category: string;
+    /** People currently in a voice channel */
+    voiceCount?: number;
+}
+
+export interface MsnChannelInfo {
+    id: string;
+    name: string;
+    topic: string;
+    guildId: string;
+    guildName: string;
+    guildIconUrl: string;
+}
+
+/** What a channel chat window needs to open */
+export interface MsnChannelConversation {
+    channelId: string;
+    channel: MsnChannelInfo;
+    messages: MsnMessage[];
 }
 
 export interface MsnToast {
